@@ -1103,6 +1103,7 @@ class Schemas:
                 },
                 "required": ["membership"],
             },
+            "prev_sender": {"type": "string", "format": "user_id"},
             "content": {
                 "type": "object",
                 "properties": {
