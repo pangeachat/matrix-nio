@@ -1495,6 +1495,7 @@ class RoomMemberEvent(Event):
             event that this one is overwriting.
         prev_sender(str, optional): The user_id of the user who sent the
             previous membership event that this one is overwriting.
+        replaces_state(str, optional): The state_key of the membership event it replaces. Sometime prev_content is not available in the state event, then this serve as a reference to the previous state event.
     """
 
     state_key: str = field()
@@ -1503,6 +1504,7 @@ class RoomMemberEvent(Event):
     content: Dict[str, Any] = field()
     prev_content: Optional[Dict[str, Any]] = None
     prev_sender: Optional[str] = None
+    replaces_state: Optional[str] = None
 
     @classmethod
     @verify(Schemas.room_membership)
@@ -1513,6 +1515,7 @@ class RoomMemberEvent(Event):
         unsigned = parsed_dict.get("unsigned", {})
         prev_content = unsigned.get("prev_content", None)
         prev_sender = unsigned.get("prev_sender", None)
+        replaces_state = unsigned.get("replaces_state", None)
 
         membership = content["membership"]
         prev_membership = prev_content.get("membership") if prev_content else None
@@ -1525,6 +1528,7 @@ class RoomMemberEvent(Event):
             content,
             prev_content,
             prev_sender,
+            replaces_state,
         )
 
 
