@@ -168,7 +168,6 @@ class HttpClient(Client):
         return path
 
     def _build_request(self, api_response, timeout=0):
-
         method, *api_data = api_response
         if len(api_data) == 2:
             path, data = api_data
@@ -628,7 +627,13 @@ class HttpClient(Client):
                 itself.
         """
         request = self._build_request(
-            Api.download(server_name, media_id, filename, allow_remote)
+            Api.download(
+                server_name,
+                media_id,
+                filename,
+                allow_remote,
+                access_token=self.access_token,
+            )
         )
 
         return self._send(request, RequestInfo(DownloadResponse))
@@ -662,7 +667,15 @@ class HttpClient(Client):
                 itself.
         """
         request = self._build_request(
-            Api.thumbnail(server_name, media_id, width, height, method, allow_remote)
+            Api.thumbnail(
+                server_name,
+                media_id,
+                width,
+                height,
+                method,
+                allow_remote,
+                access_token=self.access_token,
+            )
         )
 
         return self._send(request, RequestInfo(ThumbnailResponse))

@@ -39,7 +39,7 @@ from typing import (
     Type,
     Union,
 )
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from uuid import UUID, uuid4
 
 import aiofiles
@@ -89,10 +89,7 @@ from ..events import (
     RoomKeyRequestCancellation,
     ToDeviceEvent,
 )
-from ..exceptions import (
-    LocalProtocolError,
-    TransferCancelledError,
-)
+from ..exceptions import LocalProtocolError, TransferCancelledError
 from ..monitors import TransferMonitor
 from ..responses import (
     ContentRepositoryConfigError,
@@ -191,6 +188,7 @@ from ..responses import (
     RoomPutAliasResponse,
     RoomPutStateError,
     RoomPutStateResponse,
+    RoomReadMarkersError,
     RoomReadMarkersResponse,
     RoomRedactError,
     RoomRedactResponse,
@@ -232,8 +230,13 @@ from ..responses import (
     WhoamiResponse,
 )
 from ..rooms import MatrixRoom
-from . import Client, ClientConfig
-from .base_client import ClientCallback, logged_in_async, store_loaded
+from .base_client import (
+    Client,
+    ClientCallback,
+    ClientConfig,
+    logged_in_async,
+    store_loaded,
+)
 
 _ShareGroupSessionT = Union[ShareGroupSessionError, ShareGroupSessionResponse]
 
@@ -787,7 +790,7 @@ class AsyncClient(Client):
         content_type: Optional[str] = None,
         trace_context: Optional[Any] = None,
         data_provider: Optional[DataProvider] = None,
-        timeout: Optional[float] = None,
+        timeout: Optional[float] = None,  # noqa: ASYNC109
         content_length: Optional[int] = None,
         save_to: Optional[os.PathLike] = None,
     ):
@@ -796,6 +799,16 @@ class AsyncClient(Client):
             if content_type
             else {"Content-Type": "application/json"}
         )
+
+        if self.access_token:
+            # add authorization header
+            headers["Authorization"] = f"Bearer {self.access_token}"
+            # remove access_token from query params
+            url = list(urlparse(path))
+            qs = parse_qs(url[4])
+            qs.pop("access_token", None)
+            url[4] = urlencode(qs, doseq=True)
+            path = urlunparse(url)
 
         if content_length is not None:
             headers["Content-Length"] = str(content_length)
@@ -875,7 +888,7 @@ class AsyncClient(Client):
         data: Union[None, str, AsyncDataT] = None,
         headers: Optional[Dict[str, str]] = None,
         trace_context: Optional[Any] = None,
-        timeout: Optional[float] = None,
+        timeout: Optional[float] = None,  # noqa: ASYNC109
     ) -> ClientResponse:
         """Send a request to the homeserver.
 
@@ -912,7 +925,9 @@ class AsyncClient(Client):
         homeserver: Optional[str] = None,
     ) -> Optional[str]:
         """Convert a matrix content URI to a HTTP URI."""
-        return Api.mxc_to_http(mxc, homeserver or self.homeserver)
+        return Api.mxc_to_http(
+            mxc, homeserver or self.homeserver, access_token=self.access_token
+        )
 
     async def login_raw(
         self, auth_dict: Dict[str, Any]
@@ -1158,7 +1173,7 @@ class AsyncClient(Client):
     @logged_in_async
     async def sync(
         self,
-        timeout: Optional[int] = 0,
+        timeout: Optional[int] = 0,  # noqa: ASYNC109
         sync_filter: Optional[_FilterT] = None,
         since: Optional[str] = None,
         full_state: Optional[bool] = None,
@@ -1259,7 +1274,7 @@ class AsyncClient(Client):
     @logged_in_async
     async def sync_forever(
         self,
-        timeout: Optional[int] = None,
+        timeout: Optional[int] = None,  # noqa: ASYNC109
         sync_filter: Optional[_FilterT] = None,
         since: Optional[str] = None,
         full_state: Optional[bool] = None,
@@ -1323,7 +1338,6 @@ class AsyncClient(Client):
         """
 
         first_sync = True
-        self._stop_sync_forever = False
 
         while not self._stop_sync_forever:
             try:
@@ -1386,11 +1400,19 @@ class AsyncClient(Client):
             except asyncio.CancelledError:  # noqa: PERF203
                 for task in tasks:
                     task.cancel()
-
+                self._stop_sync_forever = False
                 raise
+            except:
+                self._stop_sync_forever = False
+                raise
+        self._stop_sync_forever = False
 
     def stop_sync_forever(self):
-        """Request that the `sync_forever` loop exits gracefully.
+        """Request that a running `sync_forever` loop exits gracefully or the next call to `sync_forever()` returns
+        immediately without doing any sync.
+
+        As `sync_forever` fully shuts down, an internal flag will be reset, allowing `sync_forever` to be called again without shutting down.
+        Also each call to `sync_forever()` after the flag was set, resets the flag.
 
         If a `sync_forever` function is running, it will finish its sync loop and exit, leaving this `AsyncClient` in
         a consistent state. In particular, it will be possible to run `sync_forever` again at a later point.
@@ -2832,7 +2854,7 @@ class AsyncClient(Client):
         self,
         room_id: str,
         typing_state: bool = True,
-        timeout: int = 30000,
+        timeout: int = 30_000,  # noqa: ASYNC109
     ) -> Union[RoomTypingResponse, RoomTypingError]:
         """Send a typing notice to the server.
 
@@ -2911,7 +2933,7 @@ class AsyncClient(Client):
         fully_read_event: str,
         read_event: Optional[str] = None,
         private_read_event: Optional[str] = None,
-    ):
+    ) -> Union[RoomReadMarkersResponse, RoomReadMarkersError]:
         """Update the fully read marker (and optionally the read receipt
         and/or private read receipt) for a room.
 
@@ -2974,11 +2996,11 @@ class AsyncClient(Client):
         return await self._send(ContentRepositoryConfigResponse, method, path)
 
     @staticmethod
-    async def _process_data_chunk(chunk, monitor=None):
+    async def _process_data_chunk(chunk, monitor: Optional[TransferMonitor] = None):
         if monitor and monitor.cancel:
             raise TransferCancelledError
 
-        while monitor and monitor.pause:
+        while monitor and monitor.pause:  # noqa: ASYNC110
             await asyncio.sleep(0.1)
 
         return chunk
@@ -3245,6 +3267,7 @@ class AsyncClient(Client):
             media_id,
             filename,
             allow_remote,
+            access_token=self.access_token,
         )
 
         response_class = MemoryDownloadResponse
@@ -3291,7 +3314,13 @@ class AsyncClient(Client):
                 itself.
         """
         http_method, path = Api.thumbnail(
-            server_name, media_id, width, height, method, allow_remote
+            server_name,
+            media_id,
+            width,
+            height,
+            method,
+            allow_remote,
+            access_token=self.access_token,
         )
 
         return await self._send(

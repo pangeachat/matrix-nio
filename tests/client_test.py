@@ -249,7 +249,10 @@ class TestClass:
         )
 
         body = json.dumps(
-            {"displayname": displayname, "avatar_url": avatar_url}
+            {
+                "displayname": displayname,
+                "avatar_url": avatar_url,
+            }
         ).encode("utf-8")
 
         data = frame_factory.build_data_frame(
@@ -965,7 +968,11 @@ class TestClass:
         http_client.connect(TransportType.HTTP2)
 
         _, _ = http_client.thumbnail(
-            "example.org", "ascERGshawAWawugaAcauga", 32, 32, allow_remote=False
+            "example.org",
+            "ascERGshawAWawugaAcauga",
+            32,
+            32,
+            allow_remote=False,
         )
 
         http_client.receive(self.file_byte_response(1))
