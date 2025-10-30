@@ -18,3 +18,5 @@ build
 .idea/
 .venv/
 venv/
+
+.github/copilot-instructions.md

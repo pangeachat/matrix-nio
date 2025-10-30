@@ -1178,6 +1178,7 @@ class AsyncClient(Client):
         since: Optional[str] = None,
         full_state: Optional[bool] = None,
         set_presence: Optional[str] = None,
+        use_state_after: Optional[bool] = None,
     ) -> Union[SyncResponse, SyncError]:
         """Synchronise the client's state with the latest state on the server.
 
@@ -1209,6 +1210,14 @@ class AsyncClient(Client):
                 received from the server using this API call.
             set_presence (str, optional): The presence state.
                 One of: ["online", "offline", "unavailable"]
+            use_state_after (bool, optional): Controls whether to receive state changes
+                between the previous sync and the start of the timeline, or between
+                the previous sync and the end of the timeline. If this is set to true,
+                servers MUST respond with the state between the previous sync and the
+                end of the timeline in state_after and MUST omit state. If false,
+                servers MUST respond with the state between the previous sync and the
+                start of the timeline in state and MUST omit state_after. By default,
+                this is false. Added in Matrix spec v1.16.
 
         Returns either a `SyncResponse` if the request was successful or
         a `SyncError` if there was an error with the request.
@@ -1227,6 +1236,7 @@ class AsyncClient(Client):
             filter=sync_filter,
             full_state=full_state,
             set_presence=presence,
+            use_state_after=use_state_after,
         )
 
         response = await self._send(
@@ -1281,6 +1291,7 @@ class AsyncClient(Client):
         loop_sleep_time: Optional[int] = None,
         first_sync_filter: Optional[_FilterT] = None,
         set_presence: Optional[str] = None,
+        use_state_after: Optional[bool] = None,
     ):
         """Continuously sync with the configured homeserver.
 
@@ -1335,6 +1346,15 @@ class AsyncClient(Client):
 
             set_presence (str, optional): The presence state.
                 One of: ["online", "offline", "unavailable"]
+
+            use_state_after (bool, optional): Controls whether to receive state changes
+                between the previous sync and the start of the timeline, or between
+                the previous sync and the end of the timeline. If this is set to true,
+                servers MUST respond with the state between the previous sync and the
+                end of the timeline in state_after and MUST omit state. If false,
+                servers MUST respond with the state between the previous sync and the
+                start of the timeline in state and MUST omit state_after. By default,
+                this is false. Added in Matrix spec v1.16.
         """
 
         first_sync = True
@@ -1356,7 +1376,12 @@ class AsyncClient(Client):
                 if first_sync:
                     presence = set_presence or self._presence
                     sync_response = await self.sync(
-                        use_timeout, use_filter, since, full_state, presence
+                        use_timeout,
+                        use_filter,
+                        since,
+                        full_state,
+                        presence,
+                        use_state_after=use_state_after,
                     )
                     await self.run_response_callbacks([sync_response])
                 else:
