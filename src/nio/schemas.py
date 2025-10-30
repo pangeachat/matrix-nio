@@ -397,6 +397,16 @@ class Schemas:
                                             },
                                         },
                                     },
+                                    "state_after": {
+                                        "type": "object",
+                                        "default": {},
+                                        "properties": {
+                                            "events": {
+                                                "type": "array",
+                                                "default": [],
+                                            },
+                                        },
+                                    },
                                     "ephemeral": {
                                         "type": "object",
                                         "default": {},

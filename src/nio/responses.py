@@ -253,6 +253,7 @@ class RoomInfo:
     account_data: List = field()
     summary: Optional[RoomSummary] = None
     unread_notifications: Optional[UnreadNotifications] = None
+    state_after: Optional[List] = field(default=None)
 
     @staticmethod
     def parse_account_data(event_dict):
@@ -2003,6 +2004,7 @@ class SyncResponse(Response):
         summary_events: Dict[str, Any],
         unread_notification_events: Dict[str, Any],
         account_data_events: List[Any],
+        state_after_events: Optional[List[Any]] = None,
     ) -> RoomInfo:
         state = SyncResponse._get_room_events(state_events)
 
@@ -2024,6 +2026,11 @@ class SyncResponse(Response):
 
         account_data = RoomInfo.parse_account_data(account_data_events)
 
+        # Parse state_after if provided
+        state_after = None
+        if state_after_events:
+            state_after = SyncResponse._get_room_events(state_after_events)
+
         return RoomInfo(
             timeline,
             state,
@@ -2031,6 +2038,7 @@ class SyncResponse(Response):
             account_data,
             summary,
             unread_notifications,
+            state_after,
         )
 
     @staticmethod
@@ -2047,7 +2055,13 @@ class SyncResponse(Response):
         for room_id, room_dict in parsed_dict.get("leave", {}).items():
             state = SyncResponse._get_state(room_dict.get("state", {}))
             timeline = SyncResponse._get_timeline(room_dict.get("timeline", {}))
-            leave_info = RoomInfo(timeline, state, [], [])
+
+            # Parse state_after if provided
+            state_after = None
+            if "state_after" in room_dict:
+                state_after = SyncResponse._get_state(room_dict.get("state_after", {}))
+
+            leave_info = RoomInfo(timeline, state, [], [], None, None, state_after)
             left_rooms[room_id] = leave_info
 
         for room_id, room_dict in parsed_dict.get("join", {}).items():
@@ -2060,6 +2074,7 @@ class SyncResponse(Response):
                 room_dict.get("summary", {}),
                 room_dict.get("unread_notifications", {}),
                 room_dict.get("account_data", {}).get("events", []),
+                room_dict.get("state_after", {}).get("events", []),
             )
 
             joined_rooms[room_id] = join_info

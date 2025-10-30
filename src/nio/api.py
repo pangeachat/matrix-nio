@@ -538,6 +538,7 @@ class Api:
         filter: Optional[_FilterT] = None,
         full_state: Optional[bool] = None,
         set_presence: Optional[str] = None,
+        use_state_after: Optional[bool] = None,
     ) -> Tuple[str, str]:
         """Synchronise the client's state with the latest state on the server.
 
@@ -563,6 +564,14 @@ class Api:
                 marked as being online when it uses this API. When set to "unavailable",
                 the client is marked as being idle.
                 One of: ["offline", "online", "unavailable"]
+            use_state_after (bool, optional): Controls whether to receive state changes
+                between the previous sync and the start of the timeline, or between
+                the previous sync and the end of the timeline. If this is set to true,
+                servers MUST respond with the state between the previous sync and the
+                end of the timeline in state_after and MUST omit state. If false,
+                servers MUST respond with the state between the previous sync and the
+                start of the timeline in state and MUST omit state_after. By default,
+                this is false. Added in Matrix spec v1.16.
         """
         query_parameters = {"access_token": access_token}
         path = ["sync"]
@@ -578,6 +587,9 @@ class Api:
 
         if set_presence:
             query_parameters["set_presence"] = set_presence
+
+        if use_state_after is not None:
+            query_parameters["use_state_after"] = str(use_state_after).lower()
 
         if isinstance(filter, dict):
             filter_json = json.dumps(filter, separators=(",", ":"))

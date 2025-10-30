@@ -1070,6 +1070,7 @@ class HttpClient(Client):
         timeout: Optional[int] = None,
         filter: Optional[Dict[Any, Any]] = None,
         full_state: bool = False,
+        use_state_after: Optional[bool] = None,
     ) -> Tuple[UUID, bytes]:
         request = self._build_request(
             Api.sync(
@@ -1078,6 +1079,7 @@ class HttpClient(Client):
                 timeout=timeout,
                 filter=filter,
                 full_state=full_state,
+                use_state_after=use_state_after,
             ),
             timeout,
         )
