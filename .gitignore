@@ -20,3 +20,6 @@ build
 venv/
 
 .github/copilot-instructions.md
+# Claude Code per-session local state (worktrees, scheduled-task locks,
+# settings.local.json) — agent-only, not source.
+.claude/
